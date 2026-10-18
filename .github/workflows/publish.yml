@@ -1,30 +1,109 @@
 name: Publish to npm
 
+# Only version tags can trigger a release. Do not publish from PRs.
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - "v*"
 
 permissions:
   contents: read
-  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  verify:
+    name: Verify release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Verify tag, package version, and branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="v$(node -p 'require("./package.json").version')"
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$expected" ]]; then
+            echo "Expected version tag $expected, received $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
+          # Reject tags pointing to commits not reachable from main.
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "Release tag must reference a commit on main" >&2
+            exit 1
+          fi
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Check and test
+        run: |
+          npm run check
+          npm test
+
+      - name: Verify npm package contents
+        run: npm pack --dry-run --ignore-scripts
+
+  publish:
+    name: Publish with npm Trusted Publishing (OIDC)
+    if: github.repository == 'Angular-RU/prettier-plugin-angular-comment'
+    needs: verify
+    runs-on: ubuntu-latest
+
+    # Configure required reviewers for this environment in GitHub settings.
+    # npm Trusted Publisher must use the same environment name.
+    environment: npm-publish
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out verified release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js and npm registry
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - name: Verify version tag
+          package-manager-cache: false
+
+      - name: Require OIDC-compatible npm
         shell: bash
         run: |
-          expected="v$(node -p 'require("./package.json").version')"
-          test "$GITHUB_REF_NAME" = "$expected" || {
-            echo "Expected tag $expected, got $GITHUB_REF_NAME" >&2
-            exit 1
-          }
-      - run: npm install --no-audit --no-fund
-      - run: npm test
-      - run: npm publish --access public
+          npm --version
+          node -e '
+            const [major, minor, patch] = require("node:child_process")
+              .execFileSync("npm", ["--version"], { encoding: "utf8" })
+              .trim()
+              .split(".")
+              .map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              console.error("npm >= 11.5.1 is required for OIDC trusted publishing");
+              process.exit(1);
+            }
+          '
+
+      # No npm install or dependency scripts in the OIDC-enabled job.
+      # npm automatically generates provenance for public packages.
+      - name: Publish to npm via OIDC
+        run: npm publish --access public --ignore-scripts
