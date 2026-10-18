@@ -1,0 +1,44 @@
+{
+  "name": "prettier-plugin-angular-comment",
+  "version": "0.1.0",
+  "description": "Format Angular templates in JS/TS template literals with /* Angular */",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check test/index.test.js",
+    "prepack": "npm run check && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Angular-RU/prettier-plugin-angular-comment.git"
+  },
+  "bugs": "https://github.com/Angular-RU/prettier-plugin-angular-comment/issues",
+  "homepage": "https://github.com/Angular-RU/prettier-plugin-angular-comment#readme",
+  "license": "MIT",
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "angular",
+    "template-literals"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

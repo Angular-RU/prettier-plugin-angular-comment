@@ -1,0 +1,30 @@
+name: Publish to npm
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+      - name: Verify version tag
+        shell: bash
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          test "$GITHUB_REF_NAME" = "$expected" || {
+            echo "Expected tag $expected, got $GITHUB_REF_NAME" >&2
+            exit 1
+          }
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm publish --access public
