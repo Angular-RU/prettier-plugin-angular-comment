@@ -55,9 +55,45 @@ npm test
 npm pack --dry-run
 ```
 
-## npm releases
+## npm releases (Trusted Publishing / OIDC)
 
-Create the npm package first if it does not yet exist. Configure [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) for `Angular-RU/prettier-plugin-angular-comment` and the workflow `publish.yml`; trusted publishing requires an existing npm package and matching owner access. After merging a version bump, push its matching `vX.Y.Z` Git tag. The GitHub Actions workflow tests and publishes via OIDC. Never put a long-lived npm token in the repository.
+This repository uses [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) with GitHub Actions. No persistent `NPM_TOKEN` or `NODE_AUTH_TOKEN` secret is required.
+
+### First release (one-time setup)
+
+npm requires the package to exist before a Trusted Publisher can be configured. If the package has not been published yet, its npm owner must bootstrap it locally:
+
+```sh
+npm login
+npm install
+npm test
+npm publish --access public
+```
+
+Keep the version in `package.json` synchronized with the first published version. Do **not** push a matching tag for the manually published version.
+
+### Enable Trusted Publishing
+
+1. Open `https://www.npmjs.com/package/prettier-plugin-angular-comment/access` or the package's npm settings, then **Trusted publishing** → **Add trusted publisher** → **GitHub Actions**.
+2. Enter **Organization/user**: `Angular-RU`, **Repository**: `prettier-plugin-angular-comment`, **Workflow filename**: `publish.yml` (not a path), **Environment**: `npm-publish`.
+3. Enable **Allow npm publish** in the npm trusted publisher's allowed actions. Staging-only permission is insufficient for this workflow.
+4. In GitHub **Settings → Environments**, create or configure `npm-publish`. Add **required reviewers** and deployment-tag restrictions if desired, so a release requires approval.
+5. Complete the first successful OIDC publication within **2 days** of creating the trusted publisher, or recreate the expired configuration.
+
+### Publish the next version
+
+Update `package.json` to an unpublished version (for example, `0.1.1`), merge it to `main`, and confirm CI is green. Then push the corresponding tag **from a commit on main**:
+
+```sh
+git switch main
+git pull --ff-only
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The [publish workflow](./.github/workflows/publish.yml) verifies the exact version and that the tag commit is on `main`, runs tests without OIDC permissions, and publishes in a separate approval-gated environment. The publisher job disables npm lifecycle scripts and uses npm's short-lived OIDC authentication and automatic provenance. Pinned GitHub Action commit SHAs and disabled release-job caching reduce supply-chain risk.
+
+**After the first successful OIDC release**, consider selecting **Require two-factor authentication and disallow tokens** under npm **Settings → Publishing access**, and protect release tags with a GitHub ruleset. Traditional npm token publishing will then be blocked while OIDC continues working.
 
 ## License
 
