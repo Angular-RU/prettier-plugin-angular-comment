@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-angular-comment",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Format Angular templates in JS/TS template literals with /* Angular */",
   "type": "module",
   "exports": {
