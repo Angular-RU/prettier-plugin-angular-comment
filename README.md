@@ -82,13 +82,13 @@ Keep the version in `package.json` synchronized with the first published version
 
 ### Publish the next version
 
-Update `package.json` to an unpublished version (for example, `0.1.1`), merge it to `main`, and confirm CI is green. Then push the corresponding tag **from a commit on main**:
+Update `package.json` to an unpublished version (for example, `0.1.2`), merge it to `main`, and confirm CI is green. Then push the corresponding tag **from a commit on main**:
 
 ```sh
 git switch main
 git pull --ff-only
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 The [publish workflow](./.github/workflows/publish.yml) verifies the exact version and that the tag commit is on `main`, runs tests without OIDC permissions, and publishes in a separate approval-gated environment. The publisher job disables npm lifecycle scripts and uses npm's short-lived OIDC authentication and automatic provenance. Pinned GitHub Action commit SHAs and disabled release-job caching reduce supply-chain risk.
