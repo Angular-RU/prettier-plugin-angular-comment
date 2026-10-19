@@ -84,7 +84,6 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
-          registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
       - name: Require OIDC-compatible npm
@@ -103,7 +102,21 @@ jobs:
             }
           '
 
+      # OIDC requires no authentication token in npm config. Supplying
+      # registry-url to setup-node writes a classic _authToken placeholder,
+      # which can prevent npm from starting its OIDC exchange.
+      - name: Verify OIDC credentials are available
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          if [[ -n "${NODE_AUTH_TOKEN:-}" || -n "${NPM_TOKEN:-}" ]]; then
+            echo "Unexpected npm token environment variable; OIDC must be used" >&2
+            exit 1
+          fi
+
       # No npm install or dependency scripts in the OIDC-enabled job.
       # npm automatically generates provenance for public packages.
       - name: Publish to npm via OIDC
-        run: npm publish --access public --ignore-scripts
+        run: npm publish --access public --ignore-scripts --registry=https://registry.npmjs.org/
